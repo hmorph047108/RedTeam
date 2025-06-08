@@ -214,7 +214,7 @@ CONFIDENCE CALIBRATION GUIDE:
 • 0.4-0.6: Limited evidence, significant assumptions required, novel or unprecedented elements
 • 0.0-0.4: Weak evidence, high uncertainty, speculative analysis, contradictory information
 
-Please structure your response as a JSON object with the following format:
+CRITICAL: You MUST respond with ONLY a valid JSON object. No additional text before or after. Structure your response exactly as follows:
 {{
     "analysis": "Your detailed analysis from this perspective following the structured framework above",
     "confidence_score": 0.85,
@@ -225,10 +225,11 @@ Please structure your response as a JSON object with the following format:
 }}
 """
         
-        # Make API call
+        # Make API call with increased token limit for comprehensive analysis
         response = await self._make_api_call(
             full_prompt,
-            perspective_prompt['system_role']
+            perspective_prompt['system_role'],
+            max_tokens=5000  # Optimized for 500-650 word analyses with JSON overhead
         )
         
         # Parse response
