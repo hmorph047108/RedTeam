@@ -20,6 +20,7 @@ from config import (
 from prompts import PERSPECTIVE_PROMPTS, MENTAL_MODEL_PROMPTS, SYNTHESIS_PROMPT
 from search_rag import SearchAndRAG
 from openrouter_client import AsyncOpenRouterClient
+from openrouter_sync import AsyncSyncOpenRouterClient
 
 @dataclass
 class AnalysisResult:
@@ -41,11 +42,21 @@ class RedTeamAnalyzer:
         # Determine which API to use
         if USE_OPENROUTER and OPENROUTER_API_KEY:
             print("Using OpenRouter API for Claude Opus 4")
-            self.client = AsyncOpenRouterClient(
-                api_key=OPENROUTER_API_KEY,
-                site_url=OPENROUTER_SITE_URL,
-                site_name=OPENROUTER_SITE_NAME
-            )
+            try:
+                # Try the async client first
+                self.client = AsyncOpenRouterClient(
+                    api_key=OPENROUTER_API_KEY,
+                    site_url=OPENROUTER_SITE_URL,
+                    site_name=OPENROUTER_SITE_NAME
+                )
+            except Exception as e:
+                print(f"Async OpenRouter client failed, using sync fallback: {e}")
+                # Fallback to sync client if async fails
+                self.client = AsyncSyncOpenRouterClient(
+                    api_key=OPENROUTER_API_KEY,
+                    site_url=OPENROUTER_SITE_URL,
+                    site_name=OPENROUTER_SITE_NAME
+                )
             self.model = OPENROUTER_MODEL
             self.use_openrouter = True
         else:

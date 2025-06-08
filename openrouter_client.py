@@ -81,8 +81,17 @@ class OpenRouterClient:
         if self.site_name:
             headers["X-Title"] = self.site_name
         
-        # Make the API request
-        async with aiohttp.ClientSession() as session:
+        # Make the API request with SSL handling
+        import ssl
+        
+        # Create SSL context that's more permissive
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+        
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.post(
                 self.base_url,
                 headers=headers,

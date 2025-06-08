@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 from anthropic import AsyncAnthropic
 from openrouter_client import AsyncOpenRouterClient
+from openrouter_sync import AsyncSyncOpenRouterClient
 
 # Load environment variables
 load_dotenv()
@@ -24,9 +25,14 @@ async def test_openrouter_connection():
     print(f"✅ OpenRouter API key found: {openrouter_key[:10]}...")
     
     try:
-        client = AsyncOpenRouterClient(api_key=openrouter_key)
-        
-        print(f"\n🧪 Testing OpenRouter with Claude Opus 4")
+        # Try async client first
+        try:
+            client = AsyncOpenRouterClient(api_key=openrouter_key)
+            print(f"\n🧪 Testing OpenRouter (async) with Claude Opus 4")
+        except Exception as e:
+            print(f"Async client failed ({e}), trying sync client...")
+            client = AsyncSyncOpenRouterClient(api_key=openrouter_key)
+            print(f"\n🧪 Testing OpenRouter (sync) with Claude Opus 4")
         
         response = await client.messages_create(
             model="anthropic/claude-opus-4",
