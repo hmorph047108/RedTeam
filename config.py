@@ -7,7 +7,7 @@ load_dotenv()
 
 # API Configuration
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-CLAUDE_MODEL = "claude-3-opus-20240229"  # Claude Opus 4
+CLAUDE_MODEL = "claude-opus-4-20250514"  # Claude Opus 4
 
 # Application Configuration
 APP_TITLE = "Strategic Red Team Analyzer"
