@@ -59,7 +59,8 @@ def render_rich_text(text: str, key: str = None):
     html_text = markdown_to_html(text)
     
     # Use st.markdown with unsafe_allow_html for rich display
-    st.markdown(html_text, unsafe_allow_html=True, key=key)
+    # Note: st.markdown doesn't accept a key parameter
+    st.markdown(html_text, unsafe_allow_html=True)
 
 def render_sidebar() -> tuple:
     """Render the application sidebar with controls."""
@@ -228,19 +229,19 @@ def render_analysis_results(results: Dict[str, AnalysisResult]):
             
             # Main analysis
             st.markdown("**Analysis:**")
-            render_rich_text(result.analysis, key=f"analysis_{perspective}")
+            render_rich_text(result.analysis)
             
             # Key insights
             if result.key_insights:
                 st.markdown("**Key Insights:**")
-                for i, insight in enumerate(result.key_insights):
-                    render_rich_text(f"• {insight}", key=f"insight_{perspective}_{i}")
+                for insight in result.key_insights:
+                    render_rich_text(f"• {insight}")
             
             # Recommendations
             if result.recommendations:
                 st.markdown("**Recommendations:**")
-                for i, rec in enumerate(result.recommendations):
-                    render_rich_text(f"→ {rec}", key=f"rec_{perspective}_{i}")
+                for rec in result.recommendations:
+                    render_rich_text(f"→ {rec}")
 
 def render_synthesis_section(synthesis: Dict[str, Any]):
     """Render the synthesis and recommendations section."""
@@ -301,7 +302,7 @@ def render_synthesis_section(synthesis: Dict[str, Any]):
         if 'critical_insights' in synthesis:
             st.markdown("**Most Critical Strategic Insights:**")
             for i, insight in enumerate(synthesis['critical_insights'], 1):
-                render_rich_text(f"{i}. {insight}", key=f"critical_insight_{i}")
+                render_rich_text(f"{i}. {insight}")
         
         if 'key_assumptions_to_validate' in synthesis:
             st.markdown("**Key Assumptions to Validate:**")
