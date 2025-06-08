@@ -66,12 +66,37 @@ def render_sidebar() -> tuple:
     """Render the application sidebar with controls."""
     st.sidebar.header("🎯 Analysis Configuration")
     
-    # API Key input
-    api_key = st.sidebar.text_input(
-        "Anthropic API Key",
-        type="password",
-        help="Enter your Anthropic API key to enable analysis"
-    )
+    # API Configuration section
+    st.sidebar.subheader("🔑 API Configuration")
+    
+    # Check if OpenRouter is configured
+    from config import USE_OPENROUTER, OPENROUTER_API_KEY, ANTHROPIC_API_KEY
+    
+    if USE_OPENROUTER and OPENROUTER_API_KEY:
+        st.sidebar.success("✅ OpenRouter API (Claude Opus 4)")
+        st.sidebar.caption("Using OpenRouter for enhanced analysis")
+        api_key = None  # Not needed when using OpenRouter
+    else:
+        st.sidebar.info("🔧 Using Direct Anthropic API")
+        api_key = st.sidebar.text_input(
+            "Anthropic API Key",
+            type="password",
+            value=ANTHROPIC_API_KEY if ANTHROPIC_API_KEY else "",
+            help="Enter your Anthropic API key to enable analysis"
+        )
+        
+        # Show OpenRouter setup instructions
+        with st.sidebar.expander("🚀 Upgrade to Claude Opus 4"):
+            st.write("""
+            **Get access to Claude Opus 4:**
+            1. Get OpenRouter API key: [openrouter.ai](https://openrouter.ai)
+            2. Add to .env file:
+               ```
+               OPENROUTER_API_KEY=your_key
+               USE_OPENROUTER=true
+               ```
+            3. Restart the application
+            """)
     
     st.sidebar.markdown("---")
     

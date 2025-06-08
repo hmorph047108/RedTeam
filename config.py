@@ -7,7 +7,14 @@ load_dotenv()
 
 # API Configuration
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-CLAUDE_MODEL = "claude-opus-4-20250514"  # Claude Opus 4
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+USE_OPENROUTER = os.getenv("USE_OPENROUTER", "false").lower() == "true"
+
+# Model configuration
+CLAUDE_MODEL = "claude-3-5-sonnet-20241022"  # Fallback for direct Anthropic API
+OPENROUTER_MODEL = "anthropic/claude-opus-4"  # OpenRouter model name
+OPENROUTER_SITE_URL = os.getenv("OPENROUTER_SITE_URL", "")
+OPENROUTER_SITE_NAME = os.getenv("OPENROUTER_SITE_NAME", "Strategic Red Team Analyzer")
 
 # Application Configuration
 APP_TITLE = "Strategic Red Team Analyzer"

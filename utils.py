@@ -8,14 +8,22 @@ from typing import Optional, Dict, Any, List
 import streamlit as st
 
 def validate_api_key(api_key: str) -> bool:
-    """Validate the format of an Anthropic API key."""
-    if not api_key:
+    """Validate API key configuration."""
+    from config import USE_OPENROUTER, OPENROUTER_API_KEY, ANTHROPIC_API_KEY
+    
+    # If using OpenRouter, check OpenRouter configuration
+    if USE_OPENROUTER:
+        return bool(OPENROUTER_API_KEY)
+    
+    # Otherwise validate Anthropic API key
+    effective_key = api_key or ANTHROPIC_API_KEY
+    if not effective_key:
         return False
     
     # Basic format validation for Anthropic API keys
     # They typically start with 'sk-ant-' and are followed by alphanumeric characters
     pattern = r'^sk-ant-[a-zA-Z0-9_-]+$'
-    return bool(re.match(pattern, api_key))
+    return bool(re.match(pattern, effective_key))
 
 def format_analysis_time(seconds: float) -> str:
     """Format analysis time in a human-readable format."""

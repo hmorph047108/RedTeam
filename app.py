@@ -97,14 +97,22 @@ def main():
     # Sidebar
     selected_perspectives, selected_models, api_key, enable_search = render_sidebar()
     
-    # Validate API key
+    # Validate API configuration
     if not validate_api_key(api_key):
-        st.error("❌ Please enter a valid Anthropic API key in the sidebar to begin analysis.")
+        from config import USE_OPENROUTER
+        if USE_OPENROUTER:
+            st.error("❌ OpenRouter API key not configured. Please check your .env file.")
+        else:
+            st.error("❌ Please enter a valid Anthropic API key in the sidebar to begin analysis.")
         st.stop()
     
     # Initialize analyzer
     if st.session_state.analyzer is None:
-        st.session_state.analyzer = RedTeamAnalyzer(api_key, enable_search=enable_search)
+        try:
+            st.session_state.analyzer = RedTeamAnalyzer(api_key, enable_search=enable_search)
+        except Exception as e:
+            st.error(f"❌ Failed to initialize analyzer: {str(e)}")
+            st.stop()
     
     # Main content area
     col1, col2 = st.columns([2, 1])

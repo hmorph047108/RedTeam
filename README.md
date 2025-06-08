@@ -58,9 +58,25 @@ A comprehensive strategy analysis tool that uses multiple Claude Opus 4 perspect
 ## Configuration
 
 ### API Key Setup
+
+**Option 1: OpenRouter (Recommended for Claude Opus 4)**
+- Get an OpenRouter API key from [openrouter.ai](https://openrouter.ai)
+- Add to your `.env` file:
+  ```
+  OPENROUTER_API_KEY=your_openrouter_api_key_here
+  USE_OPENROUTER=true
+  OPENROUTER_SITE_URL=your_site_url_here
+  OPENROUTER_SITE_NAME=Strategic Red Team Analyzer
+  ```
+
+**Option 2: Direct Anthropic API**
 - Get your Anthropic API key from [console.anthropic.com](https://console.anthropic.com)
-- Add it to your `.env` file or enter it in the application sidebar
-- The application uses Claude Opus 4 for analysis
+- Add it to your `.env` file:
+  ```
+  ANTHROPIC_API_KEY=your_anthropic_api_key_here
+  USE_OPENROUTER=false
+  ```
+- Or enter it in the application sidebar
 
 ### Application Settings
 - **Concurrent Analyses**: Adjust number of parallel API requests (1-3)

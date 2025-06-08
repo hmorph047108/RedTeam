@@ -12,9 +12,14 @@ import time
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from anthropic import AsyncAnthropic
-from config import CLAUDE_MODEL, MAX_RETRIES, REQUEST_TIMEOUT, RATE_LIMIT_DELAY, RED_TEAM_PERSPECTIVES
+from config import (
+    CLAUDE_MODEL, MAX_RETRIES, REQUEST_TIMEOUT, RATE_LIMIT_DELAY, RED_TEAM_PERSPECTIVES,
+    USE_OPENROUTER, OPENROUTER_API_KEY, OPENROUTER_MODEL, 
+    OPENROUTER_SITE_URL, OPENROUTER_SITE_NAME, ANTHROPIC_API_KEY
+)
 from prompts import PERSPECTIVE_PROMPTS, MENTAL_MODEL_PROMPTS, SYNTHESIS_PROMPT
 from search_rag import SearchAndRAG
+from openrouter_client import AsyncOpenRouterClient
 
 @dataclass
 class AnalysisResult:
@@ -29,10 +34,28 @@ class AnalysisResult:
 class RedTeamAnalyzer:
     """Main analyzer class for red team strategy analysis."""
     
-    def __init__(self, api_key: str, enable_search: bool = True):
-        self.client = AsyncAnthropic(api_key=api_key)
+    def __init__(self, api_key: str = None, enable_search: bool = True):
         self.session = None
         self.enable_search = enable_search
+        
+        # Determine which API to use
+        if USE_OPENROUTER and OPENROUTER_API_KEY:
+            print("Using OpenRouter API for Claude Opus 4")
+            self.client = AsyncOpenRouterClient(
+                api_key=OPENROUTER_API_KEY,
+                site_url=OPENROUTER_SITE_URL,
+                site_name=OPENROUTER_SITE_NAME
+            )
+            self.model = OPENROUTER_MODEL
+            self.use_openrouter = True
+        else:
+            print("Using direct Anthropic API")
+            effective_api_key = api_key or ANTHROPIC_API_KEY
+            if not effective_api_key:
+                raise ValueError("No API key provided for Anthropic API")
+            self.client = AsyncAnthropic(api_key=effective_api_key)
+            self.model = CLAUDE_MODEL
+            self.use_openrouter = False
         
         # Initialize search and RAG system
         if enable_search:
@@ -67,17 +90,29 @@ class RedTeamAnalyzer:
         try:
             messages = [{"role": "user", "content": prompt}]
             
-            response = await self.client.messages.create(
-                model=CLAUDE_MODEL,
-                max_tokens=max_tokens,
-                temperature=0.7,
-                system=system_prompt,
-                messages=messages
-            )
+            print(f"Making API call with model: {self.model}")  # Debug info
+            
+            if self.use_openrouter:
+                response = await self.client.messages_create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    temperature=0.7,
+                    system=system_prompt,
+                    messages=messages
+                )
+            else:
+                response = await self.client.messages.create(
+                    model=self.model,
+                    max_tokens=max_tokens,
+                    temperature=0.7,
+                    system=system_prompt,
+                    messages=messages
+                )
             
             return response.content[0].text
             
         except Exception as e:
+            print(f"API call error details: {type(e).__name__}: {str(e)}")  # Debug info
             raise Exception(f"API call failed: {str(e)}")
     
     async def analyze_from_perspective(
@@ -221,9 +256,27 @@ Please structure your response as a JSON object with the following format:
             if isinstance(result, Exception):
                 # Handle failed analysis
                 perspective = perspectives[i]
+                error_msg = str(result)
+                print(f"Analysis failed for {perspective}: {error_msg}")  # Debug info
+                
+                # Provide more specific error messages
+                api_type = "OpenRouter" if self.use_openrouter else "Anthropic"
+                model_name = self.model
+                
+                if "API key" in error_msg.lower() or "unauthorized" in error_msg.lower():
+                    analysis_text = f"Analysis failed: Invalid or missing {api_type} API key. Please check your configuration."
+                elif "model" in error_msg.lower():
+                    analysis_text = f"Analysis failed: Model '{model_name}' not available via {api_type}. Please check model name or try again later."
+                elif "rate limit" in error_msg.lower():
+                    analysis_text = f"Analysis failed: {api_type} rate limit exceeded. Please wait a moment and try again."
+                elif "insufficient" in error_msg.lower() and "credits" in error_msg.lower():
+                    analysis_text = f"Analysis failed: Insufficient {api_type} credits. Please check your account balance."
+                else:
+                    analysis_text = f"Analysis failed ({api_type}): {error_msg}"
+                
                 results[perspective] = AnalysisResult(
                     perspective=perspective,
-                    analysis=f"Analysis failed: {str(result)}",
+                    analysis=analysis_text,
                     confidence_score=0.0,
                     key_insights=[],
                     recommendations=[],
