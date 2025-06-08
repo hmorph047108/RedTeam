@@ -28,20 +28,20 @@ async def test_openrouter_connection():
         # Try async client first
         try:
             client = AsyncOpenRouterClient(api_key=openrouter_key)
-            print(f"\n🧪 Testing OpenRouter (async) with Claude Opus 4")
+            print(f"\n🧪 Testing OpenRouter (async) with Gemini 2.5 Pro")
         except Exception as e:
             print(f"Async client failed ({e}), trying sync client...")
             client = AsyncSyncOpenRouterClient(api_key=openrouter_key)
-            print(f"\n🧪 Testing OpenRouter (sync) with Claude Opus 4")
+            print(f"\n🧪 Testing OpenRouter (sync) with Gemini 2.5 Pro")
         
         response = await client.messages_create(
-            model="anthropic/claude-opus-4",
+            model="google/gemini-2.5-pro-preview-05-06",
             max_tokens=100,
             messages=[{"role": "user", "content": "Hello! Please respond with 'OpenRouter API test successful' if you can read this."}]
         )
         
-        print(f"✅ Claude Opus 4 via OpenRouter: {response.content[0]['text'].strip()}")
-        return "anthropic/claude-opus-4"
+        print(f"✅ Gemini 2.5 Pro via OpenRouter: {response.content[0]['text'].strip()}")
+        return "google/gemini-2.5-pro-preview-05-06"
         
     except Exception as e:
         print(f"❌ OpenRouter test failed: {str(e)}")
@@ -92,8 +92,8 @@ async def main():
     print("🔬 API Connection Test - Strategic Red Team Analyzer")
     print("=" * 60)
     
-    # Test OpenRouter first (preferred for Claude Opus 4)
-    print("\n🚀 Testing OpenRouter API (Claude Opus 4)")
+    # Test OpenRouter first (preferred for Gemini 2.5 Pro)
+    print("\n🚀 Testing OpenRouter API (Gemini 2.5 Pro)")
     openrouter_result = await test_openrouter_connection()
     
     # Test Anthropic API as fallback
@@ -103,7 +103,7 @@ async def main():
     # Provide recommendations
     print("\n" + "=" * 60)
     if openrouter_result:
-        print("🎉 RECOMMENDED: Use OpenRouter for Claude Opus 4")
+        print("🎉 RECOMMENDED: Use OpenRouter for Gemini 2.5 Pro")
         print("Add to your .env file:")
         print("USE_OPENROUTER=true")
         print(f"OPENROUTER_API_KEY=your_key_here")

@@ -12,21 +12,21 @@ USE_OPENROUTER = os.getenv("USE_OPENROUTER", "false").lower() == "true"
 
 # Model configuration
 CLAUDE_MODEL = "claude-3-5-sonnet-20241022"  # Fallback for direct Anthropic API
-OPENROUTER_MODEL = "anthropic/claude-opus-4"  # OpenRouter model name
+OPENROUTER_MODEL = "google/gemini-2.5-pro-preview-05-06"  # Gemini 2.5 Pro via OpenRouter
 OPENROUTER_SITE_URL = os.getenv("OPENROUTER_SITE_URL", "")
 OPENROUTER_SITE_NAME = os.getenv("OPENROUTER_SITE_NAME", "Strategic Red Team Analyzer")
 
 # Application Configuration
 APP_TITLE = "Strategic Red Team Analyzer"
 APP_DESCRIPTION = """
-Comprehensive strategy analysis and red teaming tool using multiple Claude Opus 4 perspectives 
+Comprehensive strategy analysis and red teaming tool using multiple Gemini 2.5 Pro perspectives 
 to challenge assumptions, identify risks, and strengthen strategic thinking.
 """
 
 # Analysis Configuration
-MAX_RETRIES = 3
-REQUEST_TIMEOUT = 60
-RATE_LIMIT_DELAY = 1
+MAX_RETRIES = 5  # Increased for OpenRouter reliability
+REQUEST_TIMEOUT = 120  # Longer timeout for OpenRouter
+RATE_LIMIT_DELAY = 2  # Longer delay between requests
 
 # Red Team Perspectives
 RED_TEAM_PERSPECTIVES = {

@@ -25,7 +25,7 @@ try:
     VECTOR_STORAGE_AVAILABLE = True
 except ImportError:
     VECTOR_STORAGE_AVAILABLE = False
-    print("Warning: Vector storage libraries not available. RAG functionality will be limited.")
+    # Silently disable vector storage - text search will still work
 
 @dataclass
 class SearchResult:

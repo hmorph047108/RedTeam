@@ -73,7 +73,7 @@ def render_sidebar() -> tuple:
     from config import USE_OPENROUTER, OPENROUTER_API_KEY, ANTHROPIC_API_KEY
     
     if USE_OPENROUTER and OPENROUTER_API_KEY:
-        st.sidebar.success("✅ OpenRouter API (Claude Opus 4)")
+        st.sidebar.success("✅ OpenRouter API (Gemini 2.5 Pro)")
         st.sidebar.caption("Using OpenRouter for enhanced analysis")
         api_key = None  # Not needed when using OpenRouter
     else:
@@ -86,9 +86,9 @@ def render_sidebar() -> tuple:
         )
         
         # Show OpenRouter setup instructions
-        with st.sidebar.expander("🚀 Upgrade to Claude Opus 4"):
+        with st.sidebar.expander("🚀 Upgrade to Gemini 2.5 Pro"):
             st.write("""
-            **Get access to Claude Opus 4:**
+            **Get access to Gemini 2.5 Pro:**
             1. Get OpenRouter API key: [openrouter.ai](https://openrouter.ai)
             2. Add to .env file:
                ```

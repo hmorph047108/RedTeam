@@ -1,13 +1,13 @@
 # Strategic Red Team Analyzer
 
-A comprehensive strategy analysis tool that uses multiple Claude Opus 4 perspectives to provide thorough red team analysis of strategic plans, business ideas, and proposals.
+A comprehensive strategy analysis tool that uses multiple Gemini 2.5 Pro perspectives to provide thorough red team analysis of strategic plans, business ideas, and proposals.
 
 ## Features
 
 ### 🎯 Core Functionality
 - **Multi-perspective Analysis**: Analyze strategies from 7 different analytical perspectives
 - **Mental Model Integration**: Apply proven cognitive frameworks to strengthen analysis
-- **Chained AI Analysis**: Uses multiple Claude Opus 4 API calls for comprehensive insights
+- **Chained AI Analysis**: Uses multiple Gemini 2.5 Pro API calls for comprehensive insights
 - **Interactive Results**: Collapsible sections with confidence scores and detailed insights
 - **Export Capabilities**: Save analysis to PDF, Markdown, or JSON formats
 
@@ -59,7 +59,7 @@ A comprehensive strategy analysis tool that uses multiple Claude Opus 4 perspect
 
 ### API Key Setup
 
-**Option 1: OpenRouter (Recommended for Claude Opus 4)**
+**Option 1: OpenRouter (Recommended for Gemini 2.5 Pro)**
 - Get an OpenRouter API key from [openrouter.ai](https://openrouter.ai)
 - Add to your `.env` file:
   ```
@@ -159,7 +159,7 @@ RedTeam/
 
 ## Limitations
 
-- **API Costs**: Each analysis uses multiple Claude Opus 4 API calls
+- **API Costs**: Each analysis uses multiple Gemini 2.5 Pro API calls
 - **Rate Limits**: Respect Anthropic's API rate limits
 - **Analysis Quality**: Output quality depends on strategy description detail
 - **Language**: Currently optimized for English language strategies
@@ -202,7 +202,7 @@ For issues and questions:
 ## Acknowledgments
 
 - Built with [Streamlit](https://streamlit.io/) for the web interface
-- Powered by [Anthropic's Claude Opus 4](https://www.anthropic.com/) for analysis
+- Powered by [Google's Gemini 2.5 Pro](https://deepmind.google/technologies/gemini/) via OpenRouter for analysis
 - Uses [Plotly](https://plotly.com/) for visualizations
 - PDF generation with [ReportLab](https://www.reportlab.com/)
 

@@ -1,5 +1,5 @@
 """
-Red Team Analyzer - Core analysis engine using Claude Opus 4 API
+Red Team Analyzer - Core analysis engine using Gemini 2.5 Pro API
 Implements chained API calls for comprehensive strategy analysis.
 """
 
@@ -41,7 +41,7 @@ class RedTeamAnalyzer:
         
         # Determine which API to use
         if USE_OPENROUTER and OPENROUTER_API_KEY:
-            print("Using OpenRouter API for Claude Opus 4")
+            print("Using OpenRouter API for Gemini 2.5 Pro")
             try:
                 # Try the async client first
                 self.client = AsyncOpenRouterClient(
@@ -89,7 +89,7 @@ class RedTeamAnalyzer:
     
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
-        wait=wait_exponential(multiplier=1, min=4, max=10)
+        wait=wait_exponential(multiplier=2, min=8, max=30)
     )
     async def _make_api_call(
         self, 
@@ -120,11 +120,26 @@ class RedTeamAnalyzer:
                     messages=messages
                 )
             
-            return response.content[0].text
+            # Handle both Anthropic and OpenRouter response formats
+            if hasattr(response.content[0], 'text'):
+                return response.content[0].text
+            elif isinstance(response.content[0], dict):
+                return response.content[0].get('text', str(response.content[0]))
+            else:
+                return str(response.content[0])
             
         except Exception as e:
-            print(f"API call error details: {type(e).__name__}: {str(e)}")  # Debug info
-            raise Exception(f"API call failed: {str(e)}")
+            error_msg = str(e)
+            print(f"API call error details: {type(e).__name__}: {error_msg}")  # Debug info
+            
+            # Handle specific OpenRouter errors
+            if "overloaded" in error_msg.lower():
+                # For overloaded errors, add exponential backoff hint
+                raise Exception(f"OpenRouter API overloaded - will retry with backoff: {error_msg}")
+            elif "rate limit" in error_msg.lower():
+                raise Exception(f"Rate limit exceeded - will retry: {error_msg}")
+            else:
+                raise Exception(f"API call failed: {error_msg}")
     
     async def analyze_from_perspective(
         self,
@@ -149,10 +164,20 @@ class RedTeamAnalyzer:
                 if context_summary:
                     search_context = f"""
 
-ADDITIONAL CONTEXT FROM RESEARCH:
+EXTERNAL CONTEXT INTEGRATION FRAMEWORK:
 {context_summary}
 
-Use this context to inform your analysis where relevant, but focus primarily on the strategy provided.
+CONTEXT ANALYSIS INSTRUCTIONS:
+1. RELEVANCE ASSESSMENT: Rate the external context relevance to this strategy (High/Medium/Low)
+2. EVIDENCE TRIANGULATION: Compare strategy assumptions against external evidence
+3. REALITY CHECK: Use external data to validate or challenge strategy feasibility
+4. INSIGHT ENHANCEMENT: Identify additional insights from external context that strengthen analysis
+
+INTEGRATION PRINCIPLES:
+• Use external context to enhance, not replace, your core analytical framework
+• Clearly distinguish between strategy-internal analysis and external context insights
+• Weight external evidence by source credibility and temporal relevance
+• Focus on how external context modifies risk assessments and success probabilities
 """
             except Exception as e:
                 print(f"Warning: Search context failed: {e}")
@@ -183,14 +208,20 @@ STRATEGY TO ANALYZE:
 
 {perspective_prompt['analysis_prompt']}
 
+CONFIDENCE CALIBRATION GUIDE:
+• 0.8-1.0: Strong evidence from multiple sources, clear logical reasoning, well-established precedents
+• 0.6-0.8: Good evidence with some uncertainty, reasonable inferences, moderate precedent support  
+• 0.4-0.6: Limited evidence, significant assumptions required, novel or unprecedented elements
+• 0.0-0.4: Weak evidence, high uncertainty, speculative analysis, contradictory information
+
 Please structure your response as a JSON object with the following format:
 {{
-    "analysis": "Your detailed analysis from this perspective",
+    "analysis": "Your detailed analysis from this perspective following the structured framework above",
     "confidence_score": 0.85,
-    "key_insights": ["insight 1", "insight 2", "insight 3"],
-    "recommendations": ["recommendation 1", "recommendation 2"],
-    "critical_assumptions": ["assumption 1", "assumption 2"],
-    "potential_failures": ["failure mode 1", "failure mode 2"]
+    "key_insights": ["insight 1 with supporting evidence", "insight 2 with impact assessment", "insight 3 with actionable implications"],
+    "recommendations": ["specific recommendation 1 with implementation guidance", "recommendation 2 with timeline and owners"],
+    "critical_assumptions": ["assumption 1 that requires validation", "assumption 2 with risk if wrong"],
+    "potential_failures": ["failure mode 1 with probability and impact", "failure mode 2 with early warning signs"]
 }}
 """
         
@@ -282,6 +313,8 @@ Please structure your response as a JSON object with the following format:
                     analysis_text = f"Analysis failed: {api_type} rate limit exceeded. Please wait a moment and try again."
                 elif "insufficient" in error_msg.lower() and "credits" in error_msg.lower():
                     analysis_text = f"Analysis failed: Insufficient {api_type} credits. Please check your account balance."
+                elif "overloaded" in error_msg.lower():
+                    analysis_text = f"Analysis failed: {api_type} servers are currently overloaded. This is temporary - please try again in a few minutes."
                 else:
                     analysis_text = f"Analysis failed ({api_type}): {error_msg}"
                 
