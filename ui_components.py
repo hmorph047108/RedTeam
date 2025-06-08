@@ -9,10 +9,57 @@ import plotly.express as px
 from typing import Dict, List, Any, Optional
 import pandas as pd
 from datetime import datetime
+import re
 
 from config import RED_TEAM_PERSPECTIVES, MENTAL_MODELS, CONFIDENCE_THRESHOLD
 from red_team_analyzer import AnalysisResult
 from export_utils import export_to_pdf, export_to_markdown
+
+def markdown_to_html(text: str) -> str:
+    """Convert markdown formatting to HTML for rich text display."""
+    if not text:
+        return text
+    
+    # Convert markdown to HTML
+    # Bold text
+    text = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', text)
+    text = re.sub(r'__([^_]+)__', r'<b>\1</b>', text)
+    
+    # Italic text
+    text = re.sub(r'\*([^*]+)\*', r'<i>\1</i>', text)
+    text = re.sub(r'_([^_]+)_', r'<i>\1</i>', text)
+    
+    # Code blocks
+    text = re.sub(r'```([^`]+)```', r'<pre>\1</pre>', text, flags=re.DOTALL)
+    text = re.sub(r'`([^`]+)`', r'<code>\1</code>', text)
+    
+    # Headers
+    text = re.sub(r'^### ([^\n]+)', r'<h3>\1</h3>', text, flags=re.MULTILINE)
+    text = re.sub(r'^## ([^\n]+)', r'<h2>\1</h2>', text, flags=re.MULTILINE)
+    text = re.sub(r'^# ([^\n]+)', r'<h1>\1</h1>', text, flags=re.MULTILINE)
+    
+    # Lists
+    text = re.sub(r'^- ([^\n]+)', r'• \1', text, flags=re.MULTILINE)
+    text = re.sub(r'^\* ([^\n]+)', r'• \1', text, flags=re.MULTILINE)
+    
+    # Links
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', text)
+    
+    # Line breaks
+    text = text.replace('\n', '<br>')
+    
+    return text
+
+def render_rich_text(text: str, key: str = None):
+    """Render text with rich formatting."""
+    if not text:
+        return
+    
+    # Clean and format the text
+    html_text = markdown_to_html(text)
+    
+    # Use st.markdown with unsafe_allow_html for rich display
+    st.markdown(html_text, unsafe_allow_html=True, key=key)
 
 def render_sidebar() -> tuple:
     """Render the application sidebar with controls."""
@@ -86,6 +133,12 @@ def render_sidebar() -> tuple:
     
     # Advanced options expander
     with st.sidebar.expander("Advanced Options"):
+        enable_search = st.checkbox(
+            "Enable Internet Search & RAG",
+            value=True,
+            help="Use internet search to gather additional context for analysis"
+        )
+        
         temperature = st.slider(
             "Analysis Creativity",
             min_value=0.0,
@@ -109,7 +162,7 @@ def render_sidebar() -> tuple:
             help="Number of parallel API requests"
         )
     
-    return selected_perspectives, selected_models, api_key
+    return selected_perspectives, selected_models, api_key, enable_search
 
 def render_confidence_badge(score: float) -> str:
     """Render a confidence score badge."""
@@ -175,19 +228,19 @@ def render_analysis_results(results: Dict[str, AnalysisResult]):
             
             # Main analysis
             st.markdown("**Analysis:**")
-            st.write(result.analysis)
+            render_rich_text(result.analysis, key=f"analysis_{perspective}")
             
             # Key insights
             if result.key_insights:
                 st.markdown("**Key Insights:**")
-                for insight in result.key_insights:
-                    st.write(f"• {insight}")
+                for i, insight in enumerate(result.key_insights):
+                    render_rich_text(f"• {insight}", key=f"insight_{perspective}_{i}")
             
             # Recommendations
             if result.recommendations:
                 st.markdown("**Recommendations:**")
-                for rec in result.recommendations:
-                    st.write(f"→ {rec}")
+                for i, rec in enumerate(result.recommendations):
+                    render_rich_text(f"→ {rec}", key=f"rec_{perspective}_{i}")
 
 def render_synthesis_section(synthesis: Dict[str, Any]):
     """Render the synthesis and recommendations section."""
@@ -248,11 +301,11 @@ def render_synthesis_section(synthesis: Dict[str, Any]):
         if 'critical_insights' in synthesis:
             st.markdown("**Most Critical Strategic Insights:**")
             for i, insight in enumerate(synthesis['critical_insights'], 1):
-                st.write(f"{i}. {insight}")
+                render_rich_text(f"{i}. {insight}", key=f"critical_insight_{i}")
         
         if 'key_assumptions_to_validate' in synthesis:
             st.markdown("**Key Assumptions to Validate:**")
-            for assumption in synthesis['key_assumptions_to_validate']:
+            for i, assumption in enumerate(synthesis['key_assumptions_to_validate']):
                 st.warning(f"⚠️ {assumption}")
     
     with tab2:
@@ -293,7 +346,65 @@ def render_synthesis_section(synthesis: Dict[str, Any]):
             st.markdown("**Alternative Approaches to Consider:**")
             for alt in synthesis['alternative_approaches']:
                 st.info(f"💡 {alt}")
+
+def render_memory_management_section():
+    """Render the memory management section."""
+    st.markdown("---")
+    st.subheader("🧠 Context Memory Management")
     
+    try:
+        from search_rag import SearchAndRAG
+        search_rag = SearchAndRAG()
+        
+        # Get memory statistics
+        stats = search_rag.get_memory_stats()
+        
+        if stats['total_items'] > 0:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Total Context Items", stats['total_items'])
+            
+            with col2:
+                st.metric("Categories", len(stats['categories']))
+            
+            with col3:
+                oldest_days = (datetime.now() - stats['oldest_item']).days
+                st.metric("Oldest Item (days)", oldest_days)
+            
+            # Category breakdown
+            if stats['categories']:
+                st.markdown("**Context Categories:**")
+                for category, count in stats['categories'].items():
+                    st.write(f"• {category}: {count} items")
+            
+            # Memory management controls
+            col_clear, col_manage = st.columns(2)
+            
+            with col_clear:
+                if st.button("🗑️ Clear Old Memory (30+ days)"):
+                    search_rag.clear_old_memory(days_old=30)
+                    st.success("Old memory cleared!")
+                    st.rerun()
+            
+            with col_manage:
+                days_to_clear = st.selectbox(
+                    "Clear memory older than:",
+                    [7, 14, 30, 60, 90],
+                    index=2
+                )
+                if st.button(f"Clear {days_to_clear}+ day old memory"):
+                    search_rag.clear_old_memory(days_old=days_to_clear)
+                    st.success(f"Memory older than {days_to_clear} days cleared!")
+                    st.rerun()
+        else:
+            st.info("No context memory stored yet. Memory will be built as you perform analyses with search enabled.")
+    
+    except Exception as e:
+        st.warning(f"Memory management not available: {e}")
+
+def render_synthesis_section_continued(synthesis: Dict[str, Any]):
+    """Continue rendering synthesis section - separated due to edit conflict."""
     # Overall confidence assessment
     if 'confidence_assessment' in synthesis:
         confidence = synthesis['confidence_assessment']

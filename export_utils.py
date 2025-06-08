@@ -5,12 +5,41 @@ Export utilities for generating PDF and Markdown reports.
 from typing import Dict, Any, Optional
 from datetime import datetime
 import io
+import re
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
+from reportlab.lib.colors import HexColor
 from red_team_analyzer import AnalysisResult
 from config import RED_TEAM_PERSPECTIVES
+
+def clean_text_for_pdf(text: str) -> str:
+    """Clean text for PDF generation by removing problematic characters and formatting."""
+    if not text:
+        return ""
+    
+    # Remove or replace problematic characters
+    text = text.replace('"', '"').replace('"', '"')
+    text = text.replace(''', "'").replace(''', "'")
+    text = text.replace('–', '-').replace('—', '-')
+    
+    # Remove JSON formatting artifacts
+    text = re.sub(r'\bjson\b', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'```.*?```', '', text, flags=re.DOTALL)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    
+    # Remove markdown formatting
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)  # Bold
+    text = re.sub(r'\*([^*]+)\*', r'\1', text)      # Italic
+    text = re.sub(r'#{1,6}\s*', '', text)           # Headers
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)  # Links
+    
+    # Clean up extra whitespace
+    text = re.sub(r'\n\s*\n', '\n\n', text)
+    text = text.strip()
+    
+    return text
 
 def export_to_pdf(
     strategy: str,
@@ -60,14 +89,16 @@ def export_to_pdf(
     # Executive Summary
     story.append(Paragraph("Executive Summary", heading_style))
     if synthesis and 'executive_summary' in synthesis:
-        story.append(Paragraph(synthesis['executive_summary'], styles['Normal']))
+        clean_summary = clean_text_for_pdf(synthesis['executive_summary'])
+        story.append(Paragraph(clean_summary, styles['Normal']))
     else:
         story.append(Paragraph("This report contains a comprehensive red team analysis of the submitted strategy from multiple analytical perspectives.", styles['Normal']))
     story.append(Spacer(1, 20))
     
     # Original Strategy
     story.append(Paragraph("Original Strategy", heading_style))
-    story.append(Paragraph(strategy, styles['Normal']))
+    clean_strategy = clean_text_for_pdf(strategy)
+    story.append(Paragraph(clean_strategy, styles['Normal']))
     story.append(Spacer(1, 20))
     
     # Analysis Results
@@ -84,21 +115,24 @@ def export_to_pdf(
         
         # Analysis content
         story.append(Paragraph("Analysis:", styles['Heading4']))
-        story.append(Paragraph(result.analysis, styles['Normal']))
+        clean_analysis = clean_text_for_pdf(result.analysis)
+        story.append(Paragraph(clean_analysis, styles['Normal']))
         story.append(Spacer(1, 10))
         
         # Key insights
         if result.key_insights:
             story.append(Paragraph("Key Insights:", styles['Heading4']))
             for insight in result.key_insights:
-                story.append(Paragraph(f"• {insight}", styles['Normal']))
+                clean_insight = clean_text_for_pdf(insight)
+                story.append(Paragraph(f"• {clean_insight}", styles['Normal']))
             story.append(Spacer(1, 10))
         
         # Recommendations
         if result.recommendations:
             story.append(Paragraph("Recommendations:", styles['Heading4']))
             for rec in result.recommendations:
-                story.append(Paragraph(f"→ {rec}", styles['Normal']))
+                clean_rec = clean_text_for_pdf(rec)
+                story.append(Paragraph(f"→ {clean_rec}", styles['Normal']))
             story.append(Spacer(1, 10))
         
         story.append(Spacer(1, 20))
@@ -111,25 +145,29 @@ def export_to_pdf(
         if 'critical_insights' in synthesis:
             story.append(Paragraph("Critical Insights:", subheading_style))
             for i, insight in enumerate(synthesis['critical_insights'], 1):
-                story.append(Paragraph(f"{i}. {insight}", styles['Normal']))
+                clean_insight = clean_text_for_pdf(insight)
+                story.append(Paragraph(f"{i}. {clean_insight}", styles['Normal']))
             story.append(Spacer(1, 15))
         
         if 'priority_recommendations' in synthesis:
             story.append(Paragraph("Priority Recommendations:", subheading_style))
             for i, rec in enumerate(synthesis['priority_recommendations'], 1):
-                story.append(Paragraph(f"{i}. {rec}", styles['Normal']))
+                clean_rec = clean_text_for_pdf(rec)
+                story.append(Paragraph(f"{i}. {clean_rec}", styles['Normal']))
             story.append(Spacer(1, 15))
         
         if 'risk_mitigation' in synthesis:
             story.append(Paragraph("Risk Mitigation Strategies:", subheading_style))
             for risk in synthesis['risk_mitigation']:
-                story.append(Paragraph(f"• {risk}", styles['Normal']))
+                clean_risk = clean_text_for_pdf(risk)
+                story.append(Paragraph(f"• {clean_risk}", styles['Normal']))
             story.append(Spacer(1, 15))
         
         if 'implementation_roadmap' in synthesis:
             story.append(Paragraph("Implementation Roadmap:", subheading_style))
             for phase in synthesis['implementation_roadmap']:
-                story.append(Paragraph(f"• {phase}", styles['Normal']))
+                clean_phase = clean_text_for_pdf(phase)
+                story.append(Paragraph(f"• {clean_phase}", styles['Normal']))
             story.append(Spacer(1, 15))
     
     # Build PDF

@@ -16,7 +16,8 @@ from config import (
 from red_team_analyzer import RedTeamAnalyzer
 from ui_components import (
     render_sidebar, render_analysis_results, 
-    render_synthesis_section, render_export_section
+    render_synthesis_section, render_export_section,
+    render_memory_management_section
 )
 from utils import validate_api_key, format_analysis_time
 
@@ -94,7 +95,7 @@ def main():
     st.markdown(f'<p class="sub-header">{APP_DESCRIPTION}</p>', unsafe_allow_html=True)
     
     # Sidebar
-    selected_perspectives, selected_models, api_key = render_sidebar()
+    selected_perspectives, selected_models, api_key, enable_search = render_sidebar()
     
     # Validate API key
     if not validate_api_key(api_key):
@@ -103,7 +104,7 @@ def main():
     
     # Initialize analyzer
     if st.session_state.analyzer is None:
-        st.session_state.analyzer = RedTeamAnalyzer(api_key)
+        st.session_state.analyzer = RedTeamAnalyzer(api_key, enable_search=enable_search)
     
     # Main content area
     col1, col2 = st.columns([2, 1])
@@ -225,6 +226,10 @@ def main():
             st.session_state.analysis_results,
             st.session_state.get('synthesis_results', {})
         )
+        
+        # Memory management section (if search is enabled)
+        if enable_search:
+            render_memory_management_section()
 
 if __name__ == "__main__":
     main()

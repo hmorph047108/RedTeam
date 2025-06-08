@@ -14,6 +14,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from anthropic import AsyncAnthropic
 from config import CLAUDE_MODEL, MAX_RETRIES, REQUEST_TIMEOUT, RATE_LIMIT_DELAY, RED_TEAM_PERSPECTIVES
 from prompts import PERSPECTIVE_PROMPTS, MENTAL_MODEL_PROMPTS, SYNTHESIS_PROMPT
+from search_rag import SearchAndRAG
 
 @dataclass
 class AnalysisResult:
@@ -28,9 +29,21 @@ class AnalysisResult:
 class RedTeamAnalyzer:
     """Main analyzer class for red team strategy analysis."""
     
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, enable_search: bool = True):
         self.client = AsyncAnthropic(api_key=api_key)
         self.session = None
+        self.enable_search = enable_search
+        
+        # Initialize search and RAG system
+        if enable_search:
+            try:
+                self.search_rag = SearchAndRAG()
+            except Exception as e:
+                print(f"Warning: Could not initialize search system: {e}")
+                self.search_rag = None
+                self.enable_search = False
+        else:
+            self.search_rag = None
     
     async def __aenter__(self):
         self.session = aiohttp.ClientSession()
@@ -73,12 +86,30 @@ class RedTeamAnalyzer:
         perspective: str,
         mental_models: List[str] = None
     ) -> AnalysisResult:
-        """Analyze strategy from a specific perspective."""
+        """Analyze strategy from a specific perspective with enhanced context."""
         
         # Get perspective prompt
         perspective_prompt = PERSPECTIVE_PROMPTS.get(perspective, {})
         if not perspective_prompt:
             raise ValueError(f"Unknown perspective: {perspective}")
+        
+        # Get enhanced context from search and RAG
+        search_context = ""
+        if self.enable_search and self.search_rag:
+            try:
+                context_summary, search_results = await self.search_rag.enhance_analysis_with_context(
+                    strategy, perspective
+                )
+                if context_summary:
+                    search_context = f"""
+
+ADDITIONAL CONTEXT FROM RESEARCH:
+{context_summary}
+
+Use this context to inform your analysis where relevant, but focus primarily on the strategy provided.
+"""
+            except Exception as e:
+                print(f"Warning: Search context failed: {e}")
         
         # Incorporate mental models if specified
         mental_model_context = ""
@@ -99,7 +130,7 @@ When analyzing, explicitly apply these mental models where relevant.
         
         # Construct full prompt
         full_prompt = f"""
-{perspective_prompt['system_prompt']}{mental_model_context}
+{perspective_prompt['system_prompt']}{mental_model_context}{search_context}
 
 STRATEGY TO ANALYZE:
 {strategy}
