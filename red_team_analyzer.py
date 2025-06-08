@@ -214,9 +214,14 @@ CONFIDENCE CALIBRATION GUIDE:
 • 0.4-0.6: Limited evidence, significant assumptions required, novel or unprecedented elements
 • 0.0-0.4: Weak evidence, high uncertainty, speculative analysis, contradictory information
 
-CRITICAL: You MUST respond with ONLY a valid JSON object. No additional text before or after. Structure your response exactly as follows:
+CRITICAL JSON FORMAT REQUIREMENT:
+Your response must be ONLY a valid JSON object with no additional text, explanations, or formatting.
+Start directly with {{ and end with }}.
+Do not include markdown formatting, code blocks, or any text outside the JSON.
+
+Required JSON structure:
 {{
-    "analysis": "Your detailed analysis from this perspective following the structured framework above",
+    "analysis": "Your detailed 500-650 word analysis from this perspective following the structured framework above",
     "confidence_score": 0.85,
     "key_insights": ["insight 1 with supporting evidence", "insight 2 with impact assessment", "insight 3 with actionable implications"],
     "recommendations": ["specific recommendation 1 with implementation guidance", "recommendation 2 with timeline and owners"],
@@ -232,10 +237,38 @@ CRITICAL: You MUST respond with ONLY a valid JSON object. No additional text bef
             max_tokens=5000  # Optimized for 500-650 word analyses with JSON overhead
         )
         
-        # Parse response
+        # Parse response - handle Gemini's tendency to wrap JSON in markdown
         try:
+            # First try direct parsing
             parsed_response = json.loads(response)
+        except json.JSONDecodeError:
+            # Try to extract JSON from markdown code blocks or other wrapping
+            response_clean = response.strip()
             
+            # Remove markdown code block formatting
+            if response_clean.startswith('```json'):
+                response_clean = response_clean[7:]
+            if response_clean.startswith('```'):
+                response_clean = response_clean[3:]
+            if response_clean.endswith('```'):
+                response_clean = response_clean[:-3]
+            
+            # Find JSON content
+            json_start = response_clean.find('{')
+            json_end = response_clean.rfind('}') + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_content = response_clean[json_start:json_end]
+                try:
+                    parsed_response = json.loads(json_content)
+                except json.JSONDecodeError as e:
+                    print(f"JSON parsing failed even after extraction: {e}")
+                    # Fall back to creating default structure
+                    parsed_response = None
+            else:
+                parsed_response = None
+        
+        if parsed_response:
             return AnalysisResult(
                 perspective=perspective,
                 analysis=parsed_response.get('analysis', ''),
@@ -244,8 +277,7 @@ CRITICAL: You MUST respond with ONLY a valid JSON object. No additional text bef
                 recommendations=parsed_response.get('recommendations', []),
                 timestamp=time.strftime("%Y-%m-%d %H:%M:%S")
             )
-            
-        except json.JSONDecodeError:
+        else:
             # Fallback if JSON parsing fails
             return AnalysisResult(
                 perspective=perspective,
