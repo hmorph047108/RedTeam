@@ -12,7 +12,7 @@ import time
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from anthropic import AsyncAnthropic
-from config import CLAUDE_MODEL, MAX_RETRIES, REQUEST_TIMEOUT, RATE_LIMIT_DELAY
+from config import CLAUDE_MODEL, MAX_RETRIES, REQUEST_TIMEOUT, RATE_LIMIT_DELAY, RED_TEAM_PERSPECTIVES
 from prompts import PERSPECTIVE_PROMPTS, MENTAL_MODEL_PROMPTS, SYNTHESIS_PROMPT
 
 @dataclass
@@ -214,46 +214,147 @@ Please structure your response as a JSON object with the following format:
     ) -> Dict[str, Any]:
         """Synthesize multiple analysis results into unified insights."""
         
-        # Prepare synthesis input
+        # Prepare comprehensive synthesis input
         synthesis_input = f"""
-ORIGINAL STRATEGY:
+ORIGINAL STRATEGY TO SYNTHESIZE:
 {strategy}
 
-ANALYSIS RESULTS:
+RED TEAM ANALYSIS RESULTS FROM MULTIPLE PERSPECTIVES:
 """
         
+        # Add detailed results from each perspective
         for perspective, result in analysis_results.items():
+            perspective_info = RED_TEAM_PERSPECTIVES.get(perspective, {})
+            perspective_name = perspective_info.get('name', perspective)
+            
             synthesis_input += f"""
---- {perspective.upper()} PERSPECTIVE ---
-Analysis: {result.analysis}
-Key Insights: {', '.join(result.key_insights)}
-Recommendations: {', '.join(result.recommendations)}
-Confidence: {result.confidence_score:.2f}
+=== {perspective_name.upper()} PERSPECTIVE ===
+Confidence Score: {result.confidence_score:.2f}
+
+Full Analysis:
+{result.analysis}
+
+Key Insights:
+{chr(10).join(f"• {insight}" for insight in result.key_insights)}
+
+Recommendations:
+{chr(10).join(f"• {rec}" for rec in result.recommendations)}
 
 """
         
-        synthesis_input += SYNTHESIS_PROMPT
+        synthesis_input += f"""
+{SYNTHESIS_PROMPT}
+"""
         
-        # Make synthesis API call
-        response = await self._make_api_call(
-            synthesis_input,
-            "You are a strategic synthesis expert who combines multiple analytical perspectives into actionable insights.",
-            max_tokens=6000
-        )
+        # Enhanced system prompt for synthesis
+        system_prompt = """You are an expert strategic synthesis analyst who excels at:
+1. Identifying patterns and themes across multiple analytical perspectives
+2. Prioritizing insights based on strategic importance and evidence strength
+3. Creating actionable, specific recommendations
+4. Assessing implementation feasibility and risk factors
+5. Providing structured, JSON-formatted strategic assessments
+
+Your task is to synthesize the red team analysis into a comprehensive strategic assessment that decision-makers can act upon immediately."""
         
-        # Parse synthesis response
-        try:
-            synthesis_result = json.loads(response)
-            return synthesis_result
-        except json.JSONDecodeError:
-            return {
-                "executive_summary": response[:500] + "...",
-                "critical_insights": ["Unable to parse structured synthesis"],
-                "priority_recommendations": ["Review synthesis manually"],
-                "risk_mitigation": ["Standard risk management protocols"],
-                "implementation_roadmap": ["Plan implementation carefully"],
-                "confidence_assessment": 0.5
-            }
+        # Make synthesis API call with retries
+        max_synthesis_attempts = 3
+        for attempt in range(max_synthesis_attempts):
+            try:
+                response = await self._make_api_call(
+                    synthesis_input,
+                    system_prompt,
+                    max_tokens=8000
+                )
+                
+                # Clean response - remove any non-JSON content
+                response_clean = response.strip()
+                
+                # Find JSON content if wrapped in other text
+                json_start = response_clean.find('{')
+                json_end = response_clean.rfind('}') + 1
+                
+                if json_start >= 0 and json_end > json_start:
+                    json_content = response_clean[json_start:json_end]
+                else:
+                    json_content = response_clean
+                
+                # Parse synthesis response
+                synthesis_result = json.loads(json_content)
+                
+                # Validate required fields
+                required_fields = [
+                    'executive_summary', 'critical_insights', 'priority_recommendations',
+                    'risk_mitigation', 'implementation_roadmap', 'confidence_assessment'
+                ]
+                
+                for field in required_fields:
+                    if field not in synthesis_result:
+                        raise ValueError(f"Missing required field: {field}")
+                
+                return synthesis_result
+                
+            except (json.JSONDecodeError, ValueError) as e:
+                if attempt == max_synthesis_attempts - 1:
+                    # Final fallback with structured data
+                    return self._create_fallback_synthesis(strategy, analysis_results, str(e))
+                
+                # Retry with more explicit instructions
+                synthesis_input += f"\n\nPREVIOUS ATTEMPT FAILED: {str(e)}. Please ensure response is valid JSON only."
+        
+        return self._create_fallback_synthesis(strategy, analysis_results, "Max attempts exceeded")
+    
+    def _create_fallback_synthesis(
+        self, 
+        strategy: str, 
+        analysis_results: Dict[str, AnalysisResult],
+        error_msg: str
+    ) -> Dict[str, Any]:
+        """Create a fallback synthesis when JSON parsing fails."""
+        
+        # Extract insights and recommendations manually
+        all_insights = []
+        all_recommendations = []
+        confidence_scores = []
+        
+        for result in analysis_results.values():
+            all_insights.extend(result.key_insights)
+            all_recommendations.extend(result.recommendations)
+            confidence_scores.append(result.confidence_score)
+        
+        avg_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0.5
+        
+        return {
+            "executive_summary": f"Analysis completed across {len(analysis_results)} perspectives with average confidence of {avg_confidence:.1%}. Manual review recommended due to synthesis parsing issues.",
+            "critical_insights": all_insights[:3] if all_insights else ["Comprehensive analysis completed", "Multiple perspectives evaluated", "Further review recommended"],
+            "priority_recommendations": all_recommendations[:3] if all_recommendations else ["Review individual perspective analyses", "Validate key assumptions", "Develop implementation plan"],
+            "risk_mitigation": [
+                "Conduct thorough risk assessment based on individual analyses",
+                "Implement monitoring systems for identified concerns",
+                "Develop contingency plans for major risks"
+            ],
+            "implementation_roadmap": [
+                "Phase 1: Review and validate individual perspective analyses",
+                "Phase 2: Develop detailed implementation plan",
+                "Phase 3: Execute with continuous monitoring"
+            ],
+            "success_metrics": [
+                "Achievement of strategic objectives",
+                "Risk mitigation effectiveness",
+                "Stakeholder satisfaction levels"
+            ],
+            "confidence_assessment": avg_confidence,
+            "key_assumptions_to_validate": [
+                "Core strategy assumptions need validation",
+                "Implementation feasibility requires verification"
+            ],
+            "alternative_approaches": [
+                "Phased implementation approach",
+                "Alternative strategy based on risk assessment"
+            ],
+            "consensus_level": "Medium",
+            "implementation_difficulty": "Medium",
+            "_synthesis_note": f"Fallback synthesis used due to: {error_msg}"
+        }
     
     async def get_follow_up_questions(
         self, 

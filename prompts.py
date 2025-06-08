@@ -187,45 +187,56 @@ MENTAL_MODEL_PROMPTS = {
 
 # Synthesis Prompt
 SYNTHESIS_PROMPT = """
-Based on all the analysis above, provide a comprehensive synthesis in the following JSON format:
+TASK: Synthesize all the red team analysis perspectives above into a comprehensive strategic assessment.
+
+INSTRUCTIONS:
+1. Identify the most critical themes and patterns across all perspectives
+2. Prioritize insights based on frequency, severity, and strategic importance
+3. Create actionable recommendations that address the key concerns raised
+4. Provide specific, measurable implementation guidance
+5. Assess overall strategic viability with supporting evidence
+
+You MUST respond with valid JSON in exactly this format:
 
 {
-    "executive_summary": "A concise summary of the overall strategic assessment",
+    "executive_summary": "2-3 sentence summary of the overall strategic assessment, highlighting the most critical findings",
     "critical_insights": [
-        "Most important insight from the analysis",
-        "Second most important insight",
-        "Third insight"
+        "Most critical insight that emerged across multiple perspectives",
+        "Second most important cross-cutting insight",
+        "Third key insight that requires immediate attention"
     ],
     "priority_recommendations": [
-        "Highest priority recommendation",
-        "Second priority recommendation", 
-        "Third priority recommendation"
+        "Highest priority actionable recommendation with specific steps",
+        "Second priority recommendation with clear implementation guidance", 
+        "Third priority recommendation addressing major risks identified"
     ],
     "risk_mitigation": [
-        "Top risk mitigation strategy",
-        "Second risk mitigation strategy",
-        "Third risk mitigation strategy"
+        "Specific strategy to mitigate the highest identified risk",
+        "Concrete approach to address the second major risk category",
+        "Proactive measure for the third significant risk area"
     ],
     "implementation_roadmap": [
-        "Phase 1: First steps to take",
-        "Phase 2: Next steps",
-        "Phase 3: Long-term steps"
+        "Phase 1 (0-3 months): Immediate actions and quick wins",
+        "Phase 2 (3-12 months): Core implementation and system building",
+        "Phase 3 (12+ months): Long-term optimization and scaling"
     ],
     "success_metrics": [
-        "Key metric to track success",
-        "Leading indicator to monitor",
-        "Lagging indicator to measure"
+        "Primary quantitative metric to measure strategic success",
+        "Leading qualitative indicator to monitor progress",
+        "Lagging outcome measure to validate long-term impact"
     ],
     "confidence_assessment": 0.75,
     "key_assumptions_to_validate": [
-        "Critical assumption that needs validation",
-        "Another key assumption to test"
+        "Most critical assumption that requires immediate validation",
+        "Secondary assumption that needs testing before proceeding"
     ],
     "alternative_approaches": [
-        "Alternative approach 1",
-        "Alternative approach 2"
-    ]
+        "Alternative strategic approach if main strategy proves problematic",
+        "Backup option that addresses the key risks identified"
+    ],
+    "consensus_level": "High/Medium/Low - level of agreement across analytical perspectives",
+    "implementation_difficulty": "High/Medium/Low - assessment of execution complexity"
 }
 
-Synthesize the insights from all perspectives into a coherent, actionable strategic assessment.
+CRITICAL: Your response must be valid JSON only. No additional text before or after the JSON object.
 """

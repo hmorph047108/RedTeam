@@ -198,17 +198,50 @@ def render_synthesis_section(synthesis: Dict[str, Any]):
         st.info("No synthesis available.")
         return
     
+    # Check if this is a fallback synthesis
+    if '_synthesis_note' in synthesis:
+        st.warning(f"⚠️ Synthesis Note: {synthesis['_synthesis_note']}")
+    
     # Executive Summary
     if 'executive_summary' in synthesis:
         st.markdown("### 📋 Executive Summary")
         st.info(synthesis['executive_summary'])
     
+    # Overall assessment metrics
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if 'confidence_assessment' in synthesis:
+            confidence = synthesis['confidence_assessment']
+            st.metric(
+                "Overall Confidence", 
+                f"{confidence:.1%}",
+                delta=None
+            )
+    
+    with col2:
+        if 'consensus_level' in synthesis:
+            st.metric(
+                "Consensus Level",
+                synthesis['consensus_level'],
+                delta=None
+            )
+    
+    with col3:
+        if 'implementation_difficulty' in synthesis:
+            st.metric(
+                "Implementation Difficulty",
+                synthesis['implementation_difficulty'],
+                delta=None
+            )
+    
     # Create tabs for different synthesis sections
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🎯 Critical Insights",
         "📋 Priority Actions", 
         "⚠️ Risk Mitigation",
-        "🗺️ Implementation"
+        "🗺️ Implementation",
+        "🔍 Validation"
     ])
     
     with tab1:
@@ -249,6 +282,17 @@ def render_synthesis_section(synthesis: Dict[str, Any]):
             st.markdown("**Success Metrics to Track:**")
             for metric in synthesis['success_metrics']:
                 st.write(f"📊 {metric}")
+    
+    with tab5:
+        if 'key_assumptions_to_validate' in synthesis:
+            st.markdown("**Key Assumptions to Validate:**")
+            for assumption in synthesis['key_assumptions_to_validate']:
+                st.warning(f"🔍 {assumption}")
+        
+        if 'alternative_approaches' in synthesis:
+            st.markdown("**Alternative Approaches to Consider:**")
+            for alt in synthesis['alternative_approaches']:
+                st.info(f"💡 {alt}")
     
     # Overall confidence assessment
     if 'confidence_assessment' in synthesis:
