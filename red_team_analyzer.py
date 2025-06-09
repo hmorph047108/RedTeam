@@ -89,36 +89,42 @@ class RedTeamAnalyzer:
     
     @retry(
         stop=stop_after_attempt(MAX_RETRIES),
-        wait=wait_exponential(multiplier=2, min=8, max=30)
+        wait=wait_exponential(multiplier=2, min=4, max=20),
+        reraise=True
     )
     async def _make_api_call(
         self, 
         prompt: str, 
         system_prompt: str = "",
-        max_tokens: int = 4000
+        max_tokens: int = 4000,
+        timeout: int = 60
     ) -> str:
-        """Make a single API call to Claude with retry logic."""
+        """Make a single API call with improved timeout and error handling."""
         try:
             messages = [{"role": "user", "content": prompt}]
             
             print(f"Making API call with model: {self.model}")  # Debug info
             
+            # Add timeout wrapper for API calls
             if self.use_openrouter:
-                response = await self.client.messages_create(
+                api_call = self.client.messages_create(
                     model=self.model,
                     max_tokens=max_tokens,
-                    temperature=0.7,
+                    temperature=0.6,  # Lower temperature for more consistent JSON
                     system=system_prompt,
                     messages=messages
                 )
             else:
-                response = await self.client.messages.create(
+                api_call = self.client.messages.create(
                     model=self.model,
                     max_tokens=max_tokens,
-                    temperature=0.7,
+                    temperature=0.6,  # Lower temperature for more consistent JSON
                     system=system_prompt,
                     messages=messages
                 )
+            
+            # Apply timeout
+            response = await asyncio.wait_for(api_call, timeout=timeout)
             
             # Handle both Anthropic and OpenRouter response formats
             if hasattr(response.content[0], 'text'):
@@ -128,6 +134,8 @@ class RedTeamAnalyzer:
             else:
                 return str(response.content[0])
             
+        except asyncio.TimeoutError:
+            raise Exception(f"API call timed out after {timeout} seconds - will retry")
         except Exception as e:
             error_msg = str(e)
             print(f"API call error details: {type(e).__name__}: {error_msg}")  # Debug info
@@ -138,8 +146,111 @@ class RedTeamAnalyzer:
                 raise Exception(f"OpenRouter API overloaded - will retry with backoff: {error_msg}")
             elif "rate limit" in error_msg.lower():
                 raise Exception(f"Rate limit exceeded - will retry: {error_msg}")
+            elif "timeout" in error_msg.lower():
+                raise Exception(f"API timeout - will retry: {error_msg}")
             else:
                 raise Exception(f"API call failed: {error_msg}")
+    
+    def _parse_and_validate_json(self, response: str) -> dict:
+        """Parse and validate JSON response with multiple fallback strategies."""
+        try:
+            # Strategy 1: Direct parsing
+            parsed = json.loads(response)
+            return self._validate_json_structure(parsed)
+        except json.JSONDecodeError:
+            pass
+        
+        try:
+            # Strategy 2: Remove markdown formatting
+            response_clean = response.strip()
+            
+            # Remove various markdown wrappers
+            if response_clean.startswith('```json'):
+                response_clean = response_clean[7:]
+            elif response_clean.startswith('```'):
+                response_clean = response_clean[3:]
+            
+            if response_clean.endswith('```'):
+                response_clean = response_clean[:-3]
+            
+            # Remove any leading/trailing text
+            json_start = response_clean.find('{')
+            json_end = response_clean.rfind('}') + 1
+            
+            if json_start >= 0 and json_end > json_start:
+                json_content = response_clean[json_start:json_end]
+                parsed = json.loads(json_content)
+                return self._validate_json_structure(parsed)
+        except (json.JSONDecodeError, IndexError):
+            pass
+        
+        try:
+            # Strategy 3: Look for JSON-like patterns in the text
+            import re
+            json_pattern = r'\{[^{}]*"analysis"[^{}]*"confidence_score"[^{}]*"key_insights"[^{}]*"recommendations"[^{}]*\}'
+            matches = re.findall(json_pattern, response, re.DOTALL)
+            
+            if matches:
+                # Try the most complete match
+                for match in sorted(matches, key=len, reverse=True):
+                    try:
+                        parsed = json.loads(match)
+                        return self._validate_json_structure(parsed)
+                    except json.JSONDecodeError:
+                        continue
+        except Exception:
+            pass
+        
+        print(f"All JSON parsing strategies failed for response: {response[:200]}...")
+        return None
+    
+    def _validate_json_structure(self, parsed: dict) -> dict:
+        """Validate and clean JSON structure."""
+        if not isinstance(parsed, dict):
+            return None
+        
+        # Required fields with defaults
+        required_fields = {
+            'analysis': '',
+            'confidence_score': 0.5,
+            'key_insights': [],
+            'recommendations': []
+        }
+        
+        # Ensure all required fields exist
+        for field, default in required_fields.items():
+            if field not in parsed:
+                parsed[field] = default
+        
+        # Validate and clean field types
+        if not isinstance(parsed['analysis'], str):
+            parsed['analysis'] = str(parsed['analysis'])
+        
+        try:
+            parsed['confidence_score'] = float(parsed['confidence_score'])
+            # Ensure confidence is between 0 and 1
+            parsed['confidence_score'] = max(0.0, min(1.0, parsed['confidence_score']))
+        except (ValueError, TypeError):
+            parsed['confidence_score'] = 0.5
+        
+        if not isinstance(parsed['key_insights'], list):
+            parsed['key_insights'] = []
+        
+        if not isinstance(parsed['recommendations'], list):
+            parsed['recommendations'] = []
+        
+        # Ensure lists contain strings
+        parsed['key_insights'] = [str(item) for item in parsed['key_insights'] if item]
+        parsed['recommendations'] = [str(item) for item in parsed['recommendations'] if item]
+        
+        # Validate minimum content requirements
+        if len(parsed['analysis'].strip()) < 50:  # Minimum analysis length
+            return None
+        
+        if len(parsed['key_insights']) == 0:  # Must have at least insights
+            return None
+        
+        return parsed
     
     async def analyze_from_perspective(
         self,
@@ -214,16 +325,27 @@ CONFIDENCE CALIBRATION GUIDE:
 • 0.4-0.6: Limited evidence, significant assumptions required, novel or unprecedented elements
 • 0.0-0.4: Weak evidence, high uncertainty, speculative analysis, contradictory information
 
-CRITICAL: YOU MUST RESPOND WITH ONLY THIS EXACT JSON FORMAT. NO OTHER TEXT.
+CRITICAL: YOU MUST RESPOND WITH ONLY VALID JSON. NO OTHER TEXT WHATSOEVER.
 
+Here are examples of the EXACT format required:
+
+EXAMPLE 1:
 {{
-    "analysis": "Write your 400-word analysis here covering the 5 questions above",
-    "confidence_score": 0.85,
-    "key_insights": ["insight 1", "insight 2", "insight 3"],
-    "recommendations": ["recommendation 1", "recommendation 2"]
+    "analysis": "This strategy faces several challenges. The pricing at $50/month puts it in direct competition with established players who have more resources and brand recognition. Market timing may be problematic as the AI writing space is becoming saturated. Customer acquisition will be expensive given the crowded landscape. However, focusing on freelancers creates a niche opportunity if executed well with specialized features.",
+    "confidence_score": 0.7,
+    "key_insights": ["Pricing puts strategy in direct competition with established players", "Market timing challenging due to AI writing space saturation", "Freelancer focus creates defendable niche opportunity"],
+    "recommendations": ["Differentiate through specialized freelancer-focused features", "Consider lower initial pricing to gain market entry"]
 }}
 
-DO NOT include any text before or after this JSON. DO NOT explain your process. DO NOT use markdown. Just provide the JSON object above with your content.
+EXAMPLE 2:
+{{
+    "analysis": "From a systems perspective, this strategy creates multiple interconnected feedback loops. Customer satisfaction drives word-of-mouth marketing, which reduces acquisition costs and improves unit economics. The collaboration features create network effects where teams become locked into the platform. However, high churn in the freelance market creates negative feedback loops that could destabilize growth.",
+    "confidence_score": 0.8,
+    "key_insights": ["Network effects from collaboration features increase switching costs", "Freelancer market volatility creates churn challenges", "Word-of-mouth loops critical for sustainable unit economics"],
+    "recommendations": ["Build strong onboarding to reduce early churn", "Develop features that increase switching costs for established users"]
+}}
+
+NOW PROVIDE YOUR RESPONSE IN EXACTLY THIS FORMAT - ONLY JSON, NO OTHER TEXT:
 """
         
         # Make API call with JSON-only system prompt
@@ -232,39 +354,12 @@ DO NOT include any text before or after this JSON. DO NOT explain your process. 
         response = await self._make_api_call(
             full_prompt,
             json_system_prompt,
-            max_tokens=3000  # Optimized for 400-word analyses with JSON overhead
+            max_tokens=2500,  # Optimized for 400-word analyses with JSON overhead
+            timeout=45  # Shorter timeout for faster failures and retries
         )
         
-        # Parse response - handle Gemini's tendency to wrap JSON in markdown
-        try:
-            # First try direct parsing
-            parsed_response = json.loads(response)
-        except json.JSONDecodeError:
-            # Try to extract JSON from markdown code blocks or other wrapping
-            response_clean = response.strip()
-            
-            # Remove markdown code block formatting
-            if response_clean.startswith('```json'):
-                response_clean = response_clean[7:]
-            if response_clean.startswith('```'):
-                response_clean = response_clean[3:]
-            if response_clean.endswith('```'):
-                response_clean = response_clean[:-3]
-            
-            # Find JSON content
-            json_start = response_clean.find('{')
-            json_end = response_clean.rfind('}') + 1
-            
-            if json_start >= 0 and json_end > json_start:
-                json_content = response_clean[json_start:json_end]
-                try:
-                    parsed_response = json.loads(json_content)
-                except json.JSONDecodeError as e:
-                    print(f"JSON parsing failed even after extraction: {e}")
-                    # Fall back to creating default structure
-                    parsed_response = None
-            else:
-                parsed_response = None
+        # Enhanced JSON parsing with validation
+        parsed_response = self._parse_and_validate_json(response)
         
         if parsed_response:
             return AnalysisResult(
