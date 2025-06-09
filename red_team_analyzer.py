@@ -221,12 +221,10 @@ Do not include markdown formatting, code blocks, or any text outside the JSON.
 
 Required JSON structure:
 {{
-    "analysis": "Your detailed 500-650 word analysis from this perspective following the structured framework above",
+    "analysis": "Your 400-word analysis from this perspective",
     "confidence_score": 0.85,
-    "key_insights": ["insight 1 with supporting evidence", "insight 2 with impact assessment", "insight 3 with actionable implications"],
-    "recommendations": ["specific recommendation 1 with implementation guidance", "recommendation 2 with timeline and owners"],
-    "critical_assumptions": ["assumption 1 that requires validation", "assumption 2 with risk if wrong"],
-    "potential_failures": ["failure mode 1 with probability and impact", "failure mode 2 with early warning signs"]
+    "key_insights": ["insight 1", "insight 2", "insight 3"],
+    "recommendations": ["recommendation 1", "recommendation 2"]
 }}
 """
         
@@ -234,7 +232,7 @@ Required JSON structure:
         response = await self._make_api_call(
             full_prompt,
             perspective_prompt['system_role'],
-            max_tokens=5000  # Optimized for 500-650 word analyses with JSON overhead
+            max_tokens=3000  # Optimized for 400-word analyses with JSON overhead
         )
         
         # Parse response - handle Gemini's tendency to wrap JSON in markdown
