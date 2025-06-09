@@ -97,7 +97,7 @@ class RedTeamAnalyzer:
         prompt: str, 
         system_prompt: str = "",
         max_tokens: int = 4000,
-        timeout: int = 60
+        timeout: int = 180
     ) -> str:
         """Make a single API call with improved timeout and error handling."""
         try:
@@ -369,8 +369,8 @@ NOW PROVIDE YOUR RESPONSE IN EXACTLY THIS FORMAT - ONLY JSON, NO OTHER TEXT:
         response = await self._make_api_call(
             full_prompt,
             json_system_prompt,
-            max_tokens=2500,  # Optimized for 400-word analyses with JSON overhead
-            timeout=45  # Shorter timeout for faster failures and retries
+            max_tokens=4000,  # Increased for complete responses with full JSON
+            timeout=180  # 3 minutes for complete responses
         )
         
         # Enhanced JSON parsing with validation
@@ -403,36 +403,55 @@ NOW PROVIDE YOUR RESPONSE IN EXACTLY THIS FORMAT - ONLY JSON, NO OTHER TEXT:
         mental_models: List[str] = None,
         progress_callback: Optional[Callable[[float, str], None]] = None
     ) -> Dict[str, AnalysisResult]:
-        """Analyze strategy from multiple perspectives."""
+        """Analyze strategy from multiple perspectives sequentially for better reliability."""
         
         results = {}
         total_perspectives = len(perspectives)
         
-        # Create semaphore to limit concurrent requests
-        semaphore = asyncio.Semaphore(3)  # Max 3 concurrent requests
+        print(f"🔄 Starting sequential analysis of {total_perspectives} perspectives...")
         
-        async def analyze_with_semaphore(perspective: str, index: int):
-            async with semaphore:
+        # Process each perspective sequentially to avoid timeouts and ensure complete responses
+        for i, perspective in enumerate(perspectives):
+            try:
                 if progress_callback:
-                    progress = index / total_perspectives
+                    progress = i / total_perspectives
                     progress_callback(progress, f"Analyzing from {perspective} perspective...")
                 
+                print(f"📊 Processing {i+1}/{total_perspectives}: {perspective}")
+                
+                # Analyze single perspective with full attention and resources
                 result = await self.analyze_from_perspective(
                     strategy, perspective, mental_models
                 )
                 
-                # Rate limiting
-                await asyncio.sleep(RATE_LIMIT_DELAY)
+                results[perspective] = result
                 
-                return perspective, result
+                # Report individual completion
+                words = len(result.analysis.split())
+                insights = len(result.key_insights)
+                recs = len(result.recommendations)
+                print(f"✅ Completed {perspective}: {words}w, {insights}i, {recs}r, conf={result.confidence_score:.2f}")
+                
+                # Rate limiting between requests for API stability
+                if i < total_perspectives - 1:  # Don't delay after the last one
+                    print(f"⏳ Waiting {RATE_LIMIT_DELAY}s before next analysis...")
+                    await asyncio.sleep(RATE_LIMIT_DELAY)
+                
+            except Exception as e:
+                print(f"❌ Failed {perspective}: {str(e)}")
+                
+                # Create error result instead of crashing
+                error_analysis = f"Analysis failed for {perspective}: {str(e)}"
+                results[perspective] = AnalysisResult(
+                    perspective=perspective,
+                    analysis=error_analysis,
+                    confidence_score=0.0,
+                    key_insights=[],
+                    recommendations=[],
+                    timestamp=time.strftime("%Y-%m-%d %H:%M:%S")
+                )
         
-        # Run analyses concurrently
-        tasks = [
-            analyze_with_semaphore(perspective, i) 
-            for i, perspective in enumerate(perspectives)
-        ]
-        
-        completed_analyses = await asyncio.gather(*tasks, return_exceptions=True)
+        completed_analyses = [(perspective, result) for perspective, result in results.items()]
         
         # Process results
         for i, result in enumerate(completed_analyses):

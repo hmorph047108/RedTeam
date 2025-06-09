@@ -96,7 +96,7 @@ class OpenRouterClient:
                 self.base_url,
                 headers=headers,
                 json=request_data,
-                timeout=aiohttp.ClientTimeout(total=120)
+                timeout=aiohttp.ClientTimeout(total=180)
             ) as response:
                 
                 if response.status != 200:
