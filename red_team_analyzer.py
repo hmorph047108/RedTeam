@@ -214,24 +214,24 @@ CONFIDENCE CALIBRATION GUIDE:
 • 0.4-0.6: Limited evidence, significant assumptions required, novel or unprecedented elements
 • 0.0-0.4: Weak evidence, high uncertainty, speculative analysis, contradictory information
 
-CRITICAL JSON FORMAT REQUIREMENT:
-Your response must be ONLY a valid JSON object with no additional text, explanations, or formatting.
-Start directly with {{ and end with }}.
-Do not include markdown formatting, code blocks, or any text outside the JSON.
+CRITICAL: YOU MUST RESPOND WITH ONLY THIS EXACT JSON FORMAT. NO OTHER TEXT.
 
-Required JSON structure:
 {{
-    "analysis": "Your 400-word analysis from this perspective",
+    "analysis": "Write your 400-word analysis here covering the 5 questions above",
     "confidence_score": 0.85,
     "key_insights": ["insight 1", "insight 2", "insight 3"],
     "recommendations": ["recommendation 1", "recommendation 2"]
 }}
+
+DO NOT include any text before or after this JSON. DO NOT explain your process. DO NOT use markdown. Just provide the JSON object above with your content.
 """
         
-        # Make API call with increased token limit for comprehensive analysis
+        # Make API call with JSON-only system prompt
+        json_system_prompt = f"{perspective_prompt['system_role']} You MUST respond with ONLY valid JSON. No explanations, no markdown, no additional text."
+        
         response = await self._make_api_call(
             full_prompt,
-            perspective_prompt['system_role'],
+            json_system_prompt,
             max_tokens=3000  # Optimized for 400-word analyses with JSON overhead
         )
         

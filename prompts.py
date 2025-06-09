@@ -53,6 +53,8 @@ PERSPECTIVE_PROMPTS = {
         5. How have similar strategies evolved over time?
 
         Provide specific historical examples and clear lessons that apply to this strategy.
+        
+        IMPORTANT: You must respond with ONLY JSON format - no explanations or additional text.
         """
     },
     
@@ -64,12 +66,12 @@ PERSPECTIVE_PROMPTS = {
         Analyze this strategy from a stakeholder perspective. Write approximately 400 words covering:
 
         1. Who are the key stakeholders affected by this strategy?
-        2. How will each stakeholder group be impacted (positively/negatively)?
+        2. How will each stakeholder group be impacted?
         3. Which stakeholders have power to help or hinder this strategy?
         4. What concerns would each stakeholder group have?
         5. How can stakeholder buy-in and support be secured?
 
-        Focus on representing all voices and identifying potential conflicts between stakeholder interests.
+        IMPORTANT: You must respond with ONLY JSON format - no explanations or additional text.
         """
     },
     
@@ -87,6 +89,8 @@ PERSPECTIVE_PROMPTS = {
         5. What mitigation strategies should be implemented?
 
         Focus on realistic risks with specific mitigation recommendations.
+        
+        IMPORTANT: You must respond with ONLY JSON format - no explanations or additional text.
         """
     },
     
@@ -104,6 +108,8 @@ PERSPECTIVE_PROMPTS = {
         5. How realistic are the timelines given organizational capacity?
 
         Be realistic about organizational capabilities and challenge overly optimistic projections.
+        
+        IMPORTANT: You must respond with ONLY JSON format - no explanations or additional text.
         """
     },
     
@@ -121,6 +127,8 @@ PERSPECTIVE_PROMPTS = {
         5. How might the competitive landscape evolve during execution?
 
         Consider competitive dynamics, economic cycles, and market evolution.
+        
+        IMPORTANT: You must respond with ONLY JSON format - no explanations or additional text.
         """
     }
 }
