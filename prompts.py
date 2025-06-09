@@ -80,16 +80,14 @@ PERSPECTIVE_PROMPTS = {
         "system_prompt": """You are a risk analyst who identifies what could go wrong with strategies. 
         You assess probability and impact of different risks and suggest mitigation approaches.""",
         "analysis_prompt": """
-        Analyze this strategy from a risk assessment perspective. Write approximately 400 words covering:
+        Analyze this strategy for risks. Write approximately 400 words covering:
 
         1. What are the highest probability risks?
-        2. What are the highest impact risks (even if unlikely)?
-        3. How might different risks compound or cascade?
+        2. What are the highest impact risks?
+        3. How might different risks compound?
         4. What early warning signs should be monitored?
         5. What mitigation strategies should be implemented?
 
-        Focus on realistic risks with specific mitigation recommendations.
-        
         IMPORTANT: You must respond with ONLY JSON format - no explanations or additional text.
         """
     },
