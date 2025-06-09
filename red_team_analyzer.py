@@ -185,9 +185,12 @@ class RedTeamAnalyzer:
             pass
         
         try:
-            # Strategy 3: Look for JSON-like patterns in the text
+            # Strategy 3: More aggressive JSON extraction
             import re
-            json_pattern = r'\{[^{}]*"analysis"[^{}]*"confidence_score"[^{}]*"key_insights"[^{}]*"recommendations"[^{}]*\}'
+            
+            # Look for JSON objects that contain our required fields
+            # Use a more flexible pattern that handles nested content
+            json_pattern = r'\{(?:[^{}]|\{[^{}]*\})*"analysis"(?:[^{}]|\{[^{}]*\})*"confidence_score"(?:[^{}]|\{[^{}]*\})*"key_insights"(?:[^{}]|\{[^{}]*\})*"recommendations"(?:[^{}]|\{[^{}]*\})*\}'
             matches = re.findall(json_pattern, response, re.DOTALL)
             
             if matches:
@@ -198,6 +201,19 @@ class RedTeamAnalyzer:
                         return self._validate_json_structure(parsed)
                     except json.JSONDecodeError:
                         continue
+            
+            # Strategy 4: Even more flexible - just find complete JSON objects
+            all_json_pattern = r'\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}'
+            all_matches = re.findall(all_json_pattern, response, re.DOTALL)
+            
+            for match in sorted(all_matches, key=len, reverse=True):
+                try:
+                    parsed = json.loads(match)
+                    if isinstance(parsed, dict) and 'analysis' in parsed:
+                        return self._validate_json_structure(parsed)
+                except json.JSONDecodeError:
+                    continue
+                    
         except Exception:
             pass
         
@@ -243,12 +259,11 @@ class RedTeamAnalyzer:
         parsed['key_insights'] = [str(item) for item in parsed['key_insights'] if item]
         parsed['recommendations'] = [str(item) for item in parsed['recommendations'] if item]
         
-        # Validate minimum content requirements
-        if len(parsed['analysis'].strip()) < 50:  # Minimum analysis length
+        # Relaxed validation - allow responses with minimal content
+        if len(parsed['analysis'].strip()) < 20:  # Very minimal analysis length requirement
             return None
         
-        if len(parsed['key_insights']) == 0:  # Must have at least insights
-            return None
+        # Don't require insights - allow empty arrays (some responses may have analysis but parsing issues with arrays)
         
         return parsed
     
